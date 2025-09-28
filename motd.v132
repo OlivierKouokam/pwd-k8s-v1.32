@@ -1,0 +1,26 @@
+                          ⚠️  ENVIRONNEMENT DE DÉVELOPPEMENT  ⚠️
+ Ceci est un environnement sandbox Kubernetes v1.32. L'utilisation 
+ d'identifiants personnels est FORTEMENT déconseillée. Toute conséquence 
+ résultant de cette utilisation relève entièrement de la responsabilité de l'utilisateur.
+
+ ��� Initialisation du cluster Kubernetes v1.32 :
+
+ 1. Initialiser le nœud maître :
+    kubeadm init --apiserver-advertise-address $(hostname -i) --pod-network-cidr=10.244.0.0/16
+
+ 2. Configurer kubectl :
+    export KUBECONFIG=/etc/kubernetes/admin.conf
+
+ 3. Le CNI (Flannel) sera automatiquement installé par le script wrapper
+
+ 4. (Optionnel) Créer un déploiement de test :
+    kubectl create deployment nginx --image=nginx:latest
+    kubectl expose deployment nginx --port=80 --type=NodePort
+
+ ��� Commandes utiles K8s v1.32 :
+    kubectl get nodes -o wide                    # État des nœuds
+    kubectl get pods -A                          # Tous les pods
+    kubectl get svc -A                           # Tous les services
+    kubectl describe node $(hostname)            # Détails du nœud
+
+                          ��� Prêt pour Kubernetes v1.32 !
