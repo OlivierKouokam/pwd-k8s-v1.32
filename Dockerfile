@@ -142,32 +142,81 @@ RUN echo 'net.bridge.bridge-nf-call-iptables  = 1' > /etc/sysctl.d/k8s.conf && \
     echo 'net.bridge.bridge-nf-call-ip6tables = 1' >> /etc/sysctl.d/k8s.conf && \
     echo 'net.ipv4.ip_forward                 = 1' >> /etc/sysctl.d/k8s.conf
 
-# Configuration bash (reprise de votre logique)
-RUN echo $'cat /etc/motd \n\
-export PS1="[\h \\W]$ "' >> /root/.bash_profile
+# Configuration bash
+RUN echo 'if [ -f /etc/motd ]; then cat /etc/motd 2>/dev/null || true; fi' >> /root/.bash_profile && \
+    echo 'export PS1="[\\h \\W]\\$ "' >> /root/.bash_profile
 
 # Configuration kubectl 
 RUN mkdir -p /root/.kube && \
-    echo 'source <(kubectl completion bash)' >> /root/.bashrc && \
+    echo 'source <(kubectl completion bash) 2>/dev/null || true' >> /root/.bashrc && \
     echo 'alias k=kubectl' >> /root/.bashrc && \
-    echo 'complete -F __start_kubectl k' >> /root/.bashrc
+    echo 'complete -F __start_kubectl k 2>/dev/null || true' >> /root/.bashrc
 
-# Génération machine-id unique (repris de votre wrapper)
+# Génération machine-id unique
 RUN rm -f /etc/machine-id
 
-# Volume pour kubelet (conservé de votre architecture)
+# Volume pour kubelet
 VOLUME ["/var/lib/kubelet"]
+
+# ==============================================================================
+# ÉTAPE 6: Scripts d'entrée et helpers
+# ==============================================================================
+
+# Script d'entrée pour démarrer les services
+COPY ./entrypoint-fixed.sh /usr/local/bin/entrypoint.sh
+RUN chmod +x /usr/local/bin/entrypoint.sh
+
+# Créer les répertoires de logs
+RUN mkdir -p /var/log && touch /var/log/containerd.log /var/log/dockerd.log
+
+# Script helper pour vérifier les services
+RUN cat > /usr/local/bin/check-services.sh << 'CHECK_EOF'
+#!/bin/bash
+
+echo ">>> Verification des services..."
+echo ""
+
+# Vérifier containerd
+if pgrep containerd > /dev/null; then
+    echo "[OK] containerd: Running (PID: $(pgrep containerd))"
+else
+    echo "[ERREUR] containerd: Not running"
+fi
+
+# Vérifier Docker
+if pgrep dockerd > /dev/null; then
+    echo "[OK] docker: Running (PID: $(pgrep dockerd))"
+    docker info 2>/dev/null | head -5
+else
+    echo "[ERREUR] docker: Not running"
+fi
+
+# Vérifier kubelet
+if pgrep kubelet > /dev/null; then
+    echo "[OK] kubelet: Running (PID: $(pgrep kubelet))"
+else
+    echo "[WARN] kubelet: Not running (normal avant init)"
+fi
+
+# Vérifier le cluster K8s
+echo ""
+if [ -f /etc/kubernetes/admin.conf ]; then
+    export KUBECONFIG=/etc/kubernetes/admin.conf
+    echo ">>> Cluster Kubernetes:"
+    kubectl get nodes 2>/dev/null || echo "   Cluster non initialise"
+else
+    echo "[WARN] Cluster non initialise - Lancez: kubeadm init --apiserver-advertise-address \$(hostname -i)"
+fi
+CHECK_EOF
+
+RUN chmod +x /usr/local/bin/check-services.sh
+
+# ==============================================================================
+# PORTS EXPOSÉS (K8s v1.32)
+# ==============================================================================
+EXPOSE 6443 2379 2380 10250 10251 10252 10257 10259 30000-32767
 
 WORKDIR /root
 
-# CMD adapté avec containerd au lieu de Docker
-CMD mount --make-shared / && \
-    systemctl start containerd && \
-    systemctl start docker && \
-    systemctl start kubelet && \
-    while true; do bash -l; done
-
-# ==============================================================================
-# PORTS EXPOSÉS (mis à jour pour K8s v1.32)
-# ==============================================================================
-EXPOSE 6443 2379 2380 10250 10251 10252 10257 10259 30000-32767
+# Point d'entrée unique (format JSON pour éviter le warning)
+ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
