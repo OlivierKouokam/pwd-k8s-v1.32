@@ -1,0 +1,72 @@
+# config/containerd.toml
+version = 2
+
+# Répertoire racine
+root = "/var/lib/containerd"
+state = "/run/containerd"
+
+# Plugins
+[plugins]
+  [plugins."io.containerd.grpc.v1.cri"]
+    # Désactiver le hook de AppArmor pour compatibilité conteneur
+    disable_apparmor = true
+    
+    # Image de pause
+    sandbox_image = "registry.k8s.io/pause:3.9"
+    
+    # Désactiver les stats en temps réel pour performance
+    stats_collect_period = 10
+    enable_selinux = false
+    selinux_category_range = 1024
+    
+    [plugins."io.containerd.grpc.v1.cri".containerd]
+      default_runtime_name = "runc"
+      snapshotter = "overlayfs"
+      
+      # Désactiver les runtimes non nécessaires
+      disable_snapshot_annotations = true
+      
+      [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.runc]
+        runtime_type = "io.containerd.runc.v2"
+        
+        [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.runc.options]
+          SystemdCgroup = true
+          NoPivotRoot = false
+          NoNewKeyring = false
+          
+      # Runtime pour nvidia (optionnel)
+      [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.nvidia]
+        runtime_type = "io.containerd.runc.v2"
+        
+        [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.nvidia.options]
+          BinaryName = "/usr/bin/nvidia-container-runtime"
+          SystemdCgroup = true
+
+    # Configuration du réseau
+    [plugins."io.containerd.grpc.v1.cri".cni]
+      bin_dir = "/opt/cni/bin"
+      conf_dir = "/etc/cni/net.d"
+      max_conf_num = 1
+      conf_template = ""
+
+    # Registres
+    [plugins."io.containerd.grpc.v1.cri".registry]
+      [plugins."io.containerd.grpc.v1.cri".registry.mirrors]
+        [plugins."io.containerd.grpc.v1.cri".registry.mirrors."docker.io"]
+          endpoint = ["https://registry-1.docker.io", "https://docker.mirrors.ustc.edu.cn"]
+        [plugins."io.containerd.grpc.v1.cri".registry.mirrors."registry.k8s.io"]
+          endpoint = ["https://registry.k8s.io", "https://k8s.mirrors.ustc.edu.cn"]
+      
+      [plugins."io.containerd.grpc.v1.cri".registry.configs]
+        [plugins."io.containerd.grpc.v1.cri".registry.configs."registry.k8s.io".tls]
+          insecure_skip_verify = true
+
+# Métriques (optionnel)
+[metrics]
+  address = "0.0.0.0:1338"
+
+# Configuration du démon
+[debug]
+  address = "/run/containerd/debug.sock"
+  level = "info"
+  gid = 0

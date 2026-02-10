@@ -1,0 +1,16 @@
+apiVersion: kubelet.config.k8s.io/v1beta1
+kind: KubeletConfiguration
+cgroupDriver: systemd
+failSwapOn: false
+nodeStatusReportFrequency: 10s
+nodeStatusUpdateFrequency: 10s
+maxPods: 250
+clusterDNS:
+  - 10.96.0.10
+clusterDomain: cluster.local
+serializeImagePulls: false
+evictionHard:
+  memory.available: "100Mi"
+  nodefs.available: "10%"
+  nodefs.inodesFree: "5%"
+  imagefs.available: "15%"

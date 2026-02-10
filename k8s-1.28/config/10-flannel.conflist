@@ -1,0 +1,19 @@
+{
+  "name": "cbr0",
+  "cniVersion": "1.0.0",
+  "plugins": [
+    {
+      "type": "flannel",
+      "delegate": {
+        "hairpinMode": true,
+        "isDefaultGateway": true
+      }
+    },
+    {
+      "type": "portmap",
+      "capabilities": {
+        "portMappings": true
+      }
+    }
+  ]
+}
